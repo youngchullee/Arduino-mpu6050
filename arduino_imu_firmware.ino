@@ -1,13 +1,23 @@
 // MPU-6050 Accelerometer + Gyro
 
+<<<<<<< HEAD
 // Bluetooth module connected to digital pins 2,3
 // I2C bus on A4, A5
 // Servo on pin 0
+=======
+//
+// Temperature sensor from -40 to +85 degrees Celsius
+//   340 per degrees, -512 at 35 degrees.
+//
+// At power-up, all registers are zero, except these two:
+//      Register 0x6B (PWR_MGMT_2) = 0x40  (I read zero).
+//      Register 0x75 (WHO_AM_I)   = 0x68.
+// 
+>>>>>>> parent of b788892... - changes to i2c routines
 
 #include <Wire.h>
 //#include <SoftwareSerial.h>
 #include <math.h>
-#include <Servo.h>
 
 #define MPU6050_I2C_ADDRESS 0x68
 
@@ -15,8 +25,6 @@
 
 // Bluetooth transmitter, used optionally
 // SoftwareSerial BTSerial(2, 3); // RX | TX
-
-Servo roll_servo;
 
 // global angle, gyro derived
 double gSensitivity = 65.5; // for 500 deg/s, check data sheet
@@ -35,27 +43,31 @@ void setup()
   //BTSerial.begin(38400);
   Serial.begin(38400);
 
+<<<<<<< HEAD
   // debug led
   pinMode(13, OUTPUT); 
 
   // servo 
   roll_servo.attach(9, 550, 2550);
+=======
+  pinMode(13, OUTPUT); // debug led
+>>>>>>> parent of b788892... - changes to i2c routines
 
   // Initialize the 'Wire' class for the I2C-bus.
   Wire.begin();
 
   // PWR_MGMT_1:
   // wake up 
-  i2c_write_reg (MPU6050_I2C_ADDRESS, 0x6b, 0x00);
+  MPU6050_write_reg (0x6b, 0x00);
 
   // CONFIG:
   // Low pass filter samples, 1khz sample rate
-  i2c_write_reg (MPU6050_I2C_ADDRESS, 0x1a, 0x01);
+  MPU6050_write_reg (0x1a, 0x01);
 
   // GYRO_CONFIG:
   // 500 deg/s, FS_SEL=1
   // This means 65.5 LSBs/deg/s
-  i2c_write_reg(MPU6050_I2C_ADDRESS, 0x1b, 0x08);
+  MPU6050_write_reg(0x1b, 0x08);
 
   // CONFIG:
   // set sample rate
@@ -63,7 +75,7 @@ void setup()
   // 1kHz / (div + 1) = FREQ  
   // reg_value = 1khz/FREQ - 1
   sample_div = 1000 / FREQ - 1;
-  i2c_write_reg (MPU6050_I2C_ADDRESS, 0x19, sample_div);
+  MPU6050_write_reg (0x19, sample_div);
 
 
 //  Serial.write("Calibrating...");
@@ -122,8 +134,6 @@ void loop()
     }  
   }
 
-  roll_servo.write(-gx+90);
-
   end_time = millis();
 
   // remaining time to complete sample time
@@ -142,9 +152,9 @@ void calibrate(){
 
   for (x = 0; x < num; x++){
 
-    error = i2c_read(MPU6050_I2C_ADDRESS, 0x43, i2cData, 6);
+    error = MPU6050_read(0x43, i2cData, 6);
     if(error!=0)
-    return;
+      return;
 
     xSum += ((i2cData[0] << 8) | i2cData[1]);
     ySum += ((i2cData[2] << 8) | i2cData[3]);
@@ -166,29 +176,28 @@ void calibrate(){
 void read_sensor_data(){
  uint8_t i2cData[14];
  uint8_t error;
- // read imu data
- error = i2c_read(MPU6050_I2C_ADDRESS, 0x3b, i2cData, 14);
- if(error!=0)
- return;
+  // read imu data
+  error = MPU6050_read(0x3b, i2cData, 14);
+  if(error!=0)
+    return;
 
- // assemble 16 bit sensor data
- accX = ((i2cData[0] << 8) | i2cData[1]);
- accY = ((i2cData[2] << 8) | i2cData[3]);
- accZ = ((i2cData[4] << 8) | i2cData[5]);
+  // assemble 16 bit sensor data
+  accX = ((i2cData[0] << 8) | i2cData[1]);
+  accY = ((i2cData[2] << 8) | i2cData[3]);
+  accZ = ((i2cData[4] << 8) | i2cData[5]);
 
- gyrX = (((i2cData[8] << 8) | i2cData[9]) - gyrXoffs) / gSensitivity;
- gyrY = (((i2cData[10] << 8) | i2cData[11]) - gyrYoffs) / gSensitivity;
- gyrZ = (((i2cData[12] << 8) | i2cData[13]) - gyrZoffs) / gSensitivity;
+  gyrX = (((i2cData[8] << 8) | i2cData[9]) - gyrXoffs) / gSensitivity;
+  gyrY = (((i2cData[10] << 8) | i2cData[11]) - gyrYoffs) / gSensitivity;
+  gyrZ = (((i2cData[12] << 8) | i2cData[13]) - gyrZoffs) / gSensitivity;
  
 }
 
-// ---- I2C routines
 
-int i2c_read(int addr, int start, uint8_t *buffer, int size)
+int MPU6050_read(int start, uint8_t *buffer, int size)
 {
   int i, n, error;
 
-  Wire.beginTransmission(addr);
+  Wire.beginTransmission(MPU6050_I2C_ADDRESS);
   n = Wire.write(start);
   if (n != 1)
   return (-10);
@@ -198,7 +207,7 @@ int i2c_read(int addr, int start, uint8_t *buffer, int size)
   return (n);
 
   // Third parameter is true: relase I2C-bus after data is read.
-  Wire.requestFrom(addr, size, true);
+  Wire.requestFrom(MPU6050_I2C_ADDRESS, size, true);
   i = 0;
   while(Wire.available() && i<size)
   {
@@ -211,11 +220,11 @@ int i2c_read(int addr, int start, uint8_t *buffer, int size)
 }
 
 
-int i2c_write(int addr, int start, const uint8_t *pData, int size)
+int MPU6050_write(int start, const uint8_t *pData, int size)
 {
   int n, error;
 
-  Wire.beginTransmission(addr);
+  Wire.beginTransmission(MPU6050_I2C_ADDRESS);
   n = Wire.write(start);        // write the start address
   if (n != 1)
   return (-20);
@@ -232,11 +241,12 @@ int i2c_write(int addr, int start, const uint8_t *pData, int size)
 }
 
 
-int i2c_write_reg(int addr, int reg, uint8_t data)
+int MPU6050_write_reg(int reg, uint8_t data)
 {
   int error;
-  
-  error = i2c_write(addr, reg, &data, 1);
+
+  error = MPU6050_write(reg, &data, 1);
+
   return (error);
 }
 
